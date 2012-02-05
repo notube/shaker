@@ -1,0 +1,55 @@
+body{
+  background:black;
+  color: white;
+  font-family:Arial, Helvetica, sans-serif;
+}
+
+
+#result{
+  font-size:26px;
+ // height:300px;
+}
+
+a{
+ color:white;
+}
+
+a:link{
+  text-decoration:none;
+}
+
+a:hover{
+  color:#3198C4;
+}
+
+
+form{
+//  background:white;
+}
+
+#image_container{
+// position:relative;
+// height:800px;
+}
+
+#image{
+ top:0px;
+// height:100px;
+}
+
+#ttp{
+ position:relative;
+ bottom:30px;
+ width:200px;
+ background:black;
+}
+
+
+.large{
+ font-size:20px;
+}
+
+#conf{
+//  background:red;
+  position:absolute;
+}

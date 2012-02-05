@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta name="viewport" content="width=320; user-scalable=no" />
+        <meta http-equiv="Content-type" content="text/html; charset=utf-8">
+            <title>Accelerometer Shake Demo</title>
+
+                <script type="text/javascript" charset="utf-8" src="phonegap-1.3.0.js"></script>
+                <script type="text/javascript" charset="utf-8">
+                    var prevX = 1.0;
+                    function onBodyLoad()
+                    {		
+                        document.addEventListener("deviceready", onDeviceReady, false);
+                    }
+                    
+                    function onDeviceReady()
+                    {
+                        watchForShake(0.5);   
+                    }
+                    
+                    function watchForShake(threshold)
+                    {
+                        var axl = new Accelerometer(); 
+                        axl.watchAcceleration(
+                                              function (Accel)
+                                              {
+                                              if (true === Accel.is_updating){
+                                              return;
+                                              }
+                                              var diffX = Math.abs(Accel.x) - prevX;
+                                              
+                                              if (diffX >= threshold)
+                                              {
+                                              // The user has shaken their device. Do something
+                                              alert("You have made a milkshake!");
+                                              }
+                                              prevX = Math.abs(Accel.x);
+                                              }
+                                              , function(){}
+                                              , {frequency : 100}
+                                              );
+                    }
+                    </script>
+                </head>
+    <body onload="onBodyLoad()" id="stage" class="theme">
+        Shake it baby!
+    </body>
+    </html

@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html>
+    <head>
+    <script type="text/javascript" src="lib/jquery-1.4.4.min.js"></script>
+    <script type="text/javascript" src="lib/buttons.js"></script>
+    <script type="text/javascript" src="lib/strophe.js"></script>
+    <script type="text/javascript" charset="utf-8" src="phonegap-1.3.0.js"></script>
+
+   <link type="text/css" rel="stylesheet" href="css/basic.css" />
+        <meta name="viewport" content="width=320; user-scalable=no" />
+        <meta http-equiv="Content-type" content="text/html; charset=utf-8">
+            <title>Shake to randomise</title>
+
+                <script type="text/javascript" charset="utf-8">
+
+//jabber server
+var browser = false;
+var server = "jabber.notu.be";
+var grp = null;
+var buttons; 
+var interval;
+var channels_url;
+var my_name = tmp_name();
+                    var prevX = 1.0;
+                    var num_shakes = 0;
+
+
+function tmp_name(){
+  var rand = Math.floor(Math.random()*9999)
+  return "_"+String(rand);
+}
+
+                    function onBodyLoad()
+                    {		
+                      ////getGenres();
+                        getRandom();
+
+
+                      if(browser){
+
+                        $("#browser").html("<button onclick='fake_shake()'>Shake!</button>");
+                      }else{
+
+                        document.addEventListener("deviceready", onDeviceReady, false);
+                      }
+                        interval = window.setInterval("getRandom();",60000);
+
+                    }
+                    
+                    function onDeviceReady()
+                    {
+                        watchForShake(0.5);   
+                        document.addEventListener("pause", onPause, false);
+                        document.addEventListener("resume", onResume, false);
+                    }
+
+                    function onPause() {
+                        if(interval){
+                           window.clearInterval(interval);
+                        }
+                    }
+                    
+                    function onResume() {
+                        getRandom();
+                        interval = window.setInterval("getRandom();",60000);
+                    }
+                    
+                    function watchForShake(threshold)
+                    {
+                        var axl = new Accelerometer(); 
+                        axl.watchAcceleration(
+                                              function (Accel)
+                                              {
+                                              if (true === Accel.is_updating){
+                                              return;
+                                              }
+                                              var diffX = Math.abs(Accel.x) - prevX;
+                                              
+                                              if (diffX >= threshold)
+                                              {
+                                              // The user has shaken their device. Do something
+                                              //alert("You have made a milkshake!");
+                                               num_shakes = num_shakes+1;
+                                               console.log(num_shakes);
+                                               if(num_shakes>1){
+                                                 num_shakes = 0;
+                                                 sendRandom();
+                                               }
+                                              }
+
+                                              prevX = Math.abs(Accel.x);
+                                              }
+                                              , function(){}
+                                              , {frequency : 100}
+                                              );
+                    }
+
+function fake_shake(){
+  sendRandom();
+}
+
+
+var api_root = "http://nscreen.notu.be/iplayer_dev/api/";
+
+var my_data;
+
+function getRandom(){
+    if(!channels_url){
+      channels_url=api_root+"random?fmt=js";
+    }
+console.log("gerrandom "+channels_url);
+    $.ajax({
+      url: channels_url,
+      dataType: "json",
+      success: function(data){
+        my_data = data;
+console.log(my_data);
+
+      },
+      error: function(jqXHR, textStatus, errorThrown){
+        console.log("nok "+textStatus);
+      }
+
+    });
+
+}
+
+function sendRandom(){
+  if(my_data){
+    var suggestions = my_data["suggestions"];
+    suggestions.sort(function() {return 0.5 - Math.random()});
+    var title = suggestions[0]["title"];
+    var description = suggestions[0]["description"];
+    var pid = suggestions[0]["pid"];
+    var image = suggestions[0]["image"];
+    var manifest = suggestions[0]["manifest"];
+
+    $("#result").html("<span id='"+pid+"' manifest='"+manifest+"'><a href='http://www.bbc.co.uk/mobile/iplayer/episode/"+pid+"' target='_blank'>"+title+"</a></span><br />\n<span id='image_container'><img id='image' src='"+image+"' /></span>");
+//<br /><span id='ttp'>Touch to play</span></span><br clear='both'/>");
+    $(document).trigger('refresh');
+    var res = {};
+    res["title"]=title;
+    res["action"]="display";
+    res["manifest"]=manifest;
+    share_to_tvs(res);
+//    $("#msg").html("<p class='right'><a href='http://www.bbc.co.uk/mobile/iplayer/episode/"+pid+"' target='_blank'>Open mobile site</a></p>\n<p class='left'>Touch to play</p>\n<br clear=\"both\" />\n
+    $("#msg").html("<p>"+description+"</p><br clear=\"both\" />");
+  }else{
+    alert("no data");
+  }
+}
+
+function getGenres(){
+
+    var url = api_root+"genres";
+    $.ajax({
+      url: url,
+      dataType: "json",
+      success: function(data){
+         html = []
+         html.push("<option id='all'>All genres and formats</option>");
+         for(d in data){
+           var human_readable = data[d].replace(/_/g," ");
+           human_readable = human_readable.replace(/\:.*/,"");
+           html.push("<option id='"+data[d]+"'>"+human_readable+"</option>");
+         }
+         $("#genre_select").html(html.join("\n"));
+         return false;
+      },
+      error: function(jqXHR, textStatus, errorThrown){
+        console.log("nok "+textStatus);
+      }
+
+    });
+
+}
+
+
+$(document).bind('refresh', function () {
+
+                $("#image_container").unbind('click');
+                $( "#image_container" ).click(function() {
+                        do_play($( this ).parent().find('span').attr("id"));
+                        return false;
+                });
+});
+
+function do_play(id){
+console.log(id);
+
+    var el = $("#"+id);
+    var res = {};
+    res["manifest"]=el.attr("manifest");
+    res["title"]=el.text();
+    res["pid"]=id;
+    res["id"]=id;
+    res["image"]=el.parent().find("img").attr("src");
+    res["action"]="play";
+    share_to_tvs(res);
+
+}
+
+
+function share_to_tvs(res){
+   if(buttons){
+                                var roster = buttons.blink.look();
+                                if(roster){
+                                  for(r in roster){
+                                    var item = roster[r];
+                                    if(item.obj_type =="tv"){
+                                      var nm = item.name;
+                                      buttons.share(res, new TV(nm,nm));
+                                      
+                                    }
+                                  }
+                                }
+   }else{
+console.log("no buttons!");
+
+   }
+}
+
+function select_genre(){
+  document.forms["channel"].channel.selectedIndex = 0;
+  var selectBox = document.forms["genre"].genre;
+  user_input = selectBox.options[selectBox.selectedIndex].id;
+  var user_input_title = selectBox.options[selectBox.selectedIndex].value;
+
+  channels_url = api_root+"random?fmt=js&genre="+user_input;
+  $("#msg2").html("Selected "+user_input_title);
+  reanimate();
+
+  if(interval){//we don't need an interval if we restrict it
+    window.clearInterval(interval);
+  }
+
+  getRandom();
+  //alert(user_input);
+}
+
+function select_channel(){
+  document.forms["genre"].genre.selectedIndex = 0;
+  var selectBox = document.forms["channel"].channel;
+  user_input = selectBox.options[selectBox.selectedIndex].id;
+  var user_input_title = selectBox.options[selectBox.selectedIndex].value;
+
+  channels_url = api_root+"random?fmt=js&channel="+user_input;
+  $("#msg2").html("Selected "+user_input_title);
+  reanimate();
+
+  if(interval){//e don't need an interval if we restrict it
+    window.clearInterval(interval);
+  }
+
+  getRandom();
+  //alert(user_input);
+}
+
+function clear_selection(){
+  document.forms["channel"].channel.selectedIndex = 0;
+  document.forms["genre"].genre.selectedIndex = 0;
+  channels_url=api_root+"random?fmt=js";
+  getRandom();
+  interval = window.setInterval("getRandom();",60000);
+}
+
+function set_room(){
+ var room = document.forms["room"].room_name.value;
+ $("#connected").html("Connecting...");
+ if(room){
+   grp=room;
+   $("#grp_name").html("TV id is "+grp);   
+   buttons = new ButtonsLink({"server":server});
+   var name = my_name;
+   var me = new Person(name,name);
+   buttons.me = me;
+   buttons.connect(buttons.me,grp);
+ }
+}
+
+
+$(document).bind('connected', function (b) {
+  $("#connected").html("Connected");
+alert("connected");
+  console.log(b);
+//  $("#nowp").html();
+});
+
+$(document).bind('disconnected', function () {
+  $("#connected").html("Disonnected");
+});
+
+
+
+                    </script>
+                </head>
+    <body onload="onBodyLoad()" id="stage" class="theme">
+     <div id='prog'>
+      <div id="result"></div>
+      <div id="msg"></div>
+      <div id="browser"></div>
+     </div>
+      <div id="conf">
+        <div id="make_come_back" style="height:50px;position:absolute;width:100%"></div>
+      <p class='large'><span style='font-size:20px;'>Shake to shuffle</span><ul><li>Click on the image to play on a linked TV</li><li>Click on the title to open the iPlayer mobile page</li></ul></p>
+
+
+        <div><form onsubmit="select_genre();return false;" id="genre" name="genre">
+<select name="genre" id="genre_select">
+<option id="all">All genres</option>
+<option id="children">Children's</option>
+<option id="comedy">Comedy</option>
+<option id="drama">Drama</option>
+<option id="entertainment">Entertainment</option>
+<option id="factual">Factual</option>
+<option id="learning">Learning</option>
+<option id="music">Music</option>
+<option id="news">News</option>
+<option id="religion">Religion & Ethics</option>
+<option id="sport">Sport</option>
+<option id="weather">Weather</option>
+</select>
+
+<input type="submit" value="Restrict shuffle by genre" />
+        </form></div>
+
+        <div><form onsubmit="select_channel();return false;" id="channel" name="channel">
+<select name="channel">
+<option id="all">All channels</option>
+<option id="bbcone">BBC One</option>
+<option id="bbctwo">BBC Two</option>
+<option id="bbcthree">BBC Three</option>
+<option id="bbcfour">BBC Four</option>
+<option id="radio4">Radio 4</option>
+<option id="radio4extra">Radio 4 Extra</option>
+<option id="radio2">Radio 2</option>
+<option id="radio3">Radio 3</option>
+<option id="6music">6 Music</option>
+<option id="5live">5 Live</option>
+<option id="cbbc">CBBC</option>
+<option id="cbeebies">CBeebies</option>
+<option id="parliament">Parliament</option>
+<option id="radio1">Radio 1</option>
+<option id="1xtra">Radio 1 Extra</option>
+<option id="bbcalba">BBC Alba</option>
+<option id="5livesportsextra">5 Live Sports Extra</option>
+<option id="sport">Sport</option>
+<option id="asiannetwork">Asian Network</option>
+<option id="worldservice">World Service</option>
+<option id="schoolradio">School Radio</option>
+<option id="radioscotland">Radio Scotland</option>
+<option id="radiocymru">Radio Cymru</option>
+<option id="radionangaidheal">Radio Angaidheal</option>
+</select>
+<input type="submit" value="Restrict shuffle by channel"/>
+        </form></div>
+<button onclick="clear_selection();">Clear</button>
+        <p>Enter TV code:</p>
+        <form onsubmit="set_room();return false;" id="room" name="room">
+          <input type="text" name="room_name" value="" />
+          <input type="submit" value="Connect to TV" />
+        </form>
+        <p id="grp_name"></p>  
+        <p id="connected">Not connected</p>  
+        <p id="nowp"></p>  
+        <div id="clickme">Hide settings</div>
+      </div>
+      <div id="msg2"></div>
+
+    </body>
+
+<script type="text/javascript">
+$("#clickme").click(function(){
+   $("#prog").show();
+   $("#msg2").show();
+   reanimate();     
+
+});
+
+
+function reanimate(){
+  $("#conf").animate({
+    opacity:0.25,
+    top: "+400"
+  }, 1000, function(){
+    $("#prog").show();
+    $("#msg2").show();
+
+    $("#make_come_back").click(function(){
+     $("#prog").hide();
+     $("#msg2").hide();
+
+     $("#conf").animate({
+      opacity:1,
+      top: "0"
+     }, 1000, function(){
+
+     });
+
+    });
+  });
+
+}
+
+
+</script>
+
+    </html>
